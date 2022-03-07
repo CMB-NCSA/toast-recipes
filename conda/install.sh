@@ -4,6 +4,7 @@
 # conda pre-reqs
 # 1.  For all
 # conda install -y -c cmake=3.22.1
+# conda install -y -c anaconda h5py 
 # conda install -y conda-forge pshmem tomlkit fftw
 # 2. Only Linux
 # conda install -y -c conda-forge gcc cxx-compiler fftw
