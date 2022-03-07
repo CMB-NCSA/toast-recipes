@@ -1,0 +1,156 @@
+#!/usr/bin/env python3
+
+import argparse
+import os
+import sys
+import time
+import subprocess
+import errno
+
+_TOAST_EXEC = 'toast_healpix_coadd'
+
+
+def cmdline():
+
+    parser = argparse.ArgumentParser(description=f"Custom run of: {_TOAST_EXEC}")
+    parser.add_argument("--inmap", type=str, action="store", default=None, required=True,
+                        help="Name of filename to process")
+
+    # Write options
+    parser.add_argument("--outdir", type=str, action="store", default=None, required=True,
+                        help="The location of the output directory")
+    parser.add_argument("--nside_submap", type=int, action="store", default=4096,
+                        help="The value of NSIDE")
+    parser.add_argument("--gzip", action='store_true', default=False,
+                        help="Run gzip over the output.")
+    parser.add_argument("--indirect_write", action='store_true', default=False,
+                        help="Use indirect write of files to /tmp before moving to destionation.")
+    parser.add_argument("--indirect_write_path", action='store', default=None,
+                        help="Path for indirect write.")
+
+    parser.add_argument("--dryrun", action="store_true", default=False,
+                        help="Just print the command to be executed and exit")
+
+    # Parse the known and extra args (as a list)
+    args, uargs = parser.parse_known_args()
+
+    # Check environmental variables for indirect_write
+    if args.indirect_write_path is None and args.indirect_write is True:
+        if 'SPT3G_CUTTER_INDIRECT_WRITE_PATH' in os.environ:
+            args.indirect_write_path = os.environ['SPT3G_CUTTER_INDIRECT_WRITE_PATH']
+        else:
+            args.indirect_write_path = '/tmp'
+
+    return args, uargs
+
+
+def elapsed_time(t1, verb=False):
+    """
+    Returns the time between t1 and the current time now
+    I can can also print the formatted elapsed time.
+    ----------
+    t1: float
+        The initial time (in seconds)
+    verb: bool, optional
+        Optionally print the formatted elapsed time
+    returns
+    -------
+    stime: float
+        The elapsed time in seconds since t1
+    """
+    t2 = time.time()
+    stime = "%dm %2.2fs" % (int((t2-t1)/60.), (t2-t1) - 60*int((t2-t1)/60.))
+    if verb:
+        print("Elapsed time: {}".format(stime))
+    return stime
+
+
+def custom_run(cmd, args):
+
+    print("# Will execute:")
+    print(f"# \t{cmd}")
+    t0 = time.time()
+    status = 0
+    if not args.dryrun:
+        sys.stdout.flush()
+        status = subprocess.call(cmd, shell=True)
+        # Done
+        print(f"# run time: {elapsed_time(t0)}")
+        if status > 0:
+            sys.exit(status)
+    return
+
+
+def call_toast(args):
+    use_options = ['outmap', 'nside_submap']
+
+    # Figure out the --outmap
+    basename_in = os.path.splitext(os.path.basename(args.inmap))[0]
+    basename_out = f"{basename_in}_nside{args.nside_submap}.fits"
+    args.outmap = os.path.join(args.indirect_write_path, basename_out)
+    args.outmap_gz = os.path.join(args.indirect_write_path, basename_out+'.gz')
+    args.outfile = os.path.join(args.outdir, basename_out)
+    args.outfile_gz = os.path.join(args.outdir, basename_out + '.gz')
+
+    # Make it a dictionary we can pop items out of it
+    dict_args = vars(args)
+
+    # We build the command-list from the known (additional) arguments
+    cmdlist = [_TOAST_EXEC, args.inmap]
+
+    # We build the command-list from the known (additional) arguments
+    for key in dict_args:
+        if key not in use_options:
+            continue
+        cmdlist.append(f"--{key}")
+        cmdlist.append(dict_args[key])
+
+    # plus the extra args which are directly passed to ngmixit
+    for uarg in uargs:
+        cmdlist.append(uarg)
+
+    # The full command in one line
+    cmd = ' '.join(map(str, cmdlist))
+    custom_run(cmd, args)
+    return args
+
+
+def call_gzip(args):
+
+    cmd = f"gzip --fast {args.outmap}"
+    custom_run(cmd, args)
+    return args
+
+
+def call_move(args):
+
+    create_dir(args.outdir)
+    cmd = f"mv {args.outmap_gz} {args.outfile_gz}"
+    custom_run(cmd, args)
+    return args
+
+
+def create_dir(dirname):
+    "Safely attempt to create a folder"
+    if not os.path.isdir(dirname):
+        print(f"Creating directory {dirname}")
+        try:
+            os.makedirs(dirname, mode=0o755, exist_ok=True)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                print(f"Problem creating {dirname} -- proceeding with trepidation")
+
+
+if __name__ == "__main__":
+
+    t0 = time.time()
+
+    args, uargs = cmdline()
+
+    # Call tost
+    args = call_toast(args)
+    # Gzip and move
+    args = call_gzip(args)
+    # Move:
+    args = call_move(args)
+    print(f"# Total time: {elapsed_time(t0)}")

@@ -29,16 +29,28 @@ RUN apt-get install -y python3-setuptools python3-h5py
 RUN apt-get install -y python3-pip
 RUN pip3 install tomlkit traitlets==5.1.1 pshmem
 
+# # Update cmake
+RUN apt-get remove -y --purge cmake
+WORKDIR /usr/local
+RUN wget https://github.com/Kitware/CMake/releases/download/v3.23.0-rc2/cmake-3.23.0-rc2-linux-x86_64.sh
+RUN chmod +x cmake-3.23.0-rc2-linux-x86_64.sh &&\
+    bash ./cmake-3.23.0-rc2-linux-x86_64.sh --skip-license
+
 # Clone and install toast
+ARG TOAST_VERSION
 RUN mkdir -p /opt/toast
 RUN git clone https://github.com/hpc4cmb/toast.git && \
     cd toast && \
     git checkout toast3 && \
+    git checkout $TOAST_VERSION && \
     mkdir build && \
     cd build && \
     ../platforms/linux-gcc.sh -DCMAKE_INSTALL_PREFIX=/opt/toast && \
     make -j 4 && \
     make install
+
+# Copy the script
+COPY docker/run_toast_healpix_coadd /usr/local/bin
 
 # Add $CMBS4USER as user and create groups wheel and spt
 ARG CMBS4USER
