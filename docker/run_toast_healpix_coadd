@@ -6,6 +6,7 @@ import sys
 import time
 import subprocess
 import errno
+import magic
 
 _TOAST_EXEC = 'toast_healpix_coadd'
 
@@ -13,14 +14,13 @@ _TOAST_EXEC = 'toast_healpix_coadd'
 def cmdline():
 
     parser = argparse.ArgumentParser(description=f"Custom run of: {_TOAST_EXEC}")
-    parser.add_argument("--inmap", type=str, action="store", default=None, required=True,
-                        help="Name of filename to process")
-
+    parser.add_argument("files", nargs='+',
+                        help="Filename(s) to process")
+    #parser.add_argument("--inmap", type=str, action="store", default=None, required=True,
+    #                    help="Name of filename to process")
     # Write options
     parser.add_argument("--outdir", type=str, action="store", default=None, required=True,
                         help="The location of the output directory")
-    parser.add_argument("--nside_submap", type=int, action="store", default=4096,
-                        help="The value of NSIDE")
     parser.add_argument("--gzip", action='store_true', default=False,
                         help="Run gzip over the output.")
     parser.add_argument("--indirect_write", action='store_true', default=False,
@@ -28,6 +28,8 @@ def cmdline():
     parser.add_argument("--indirect_write_path", action='store', default=None,
                         help="Path for indirect write.")
 
+    parser.add_argument("--nside_submap", type=int, action="store", default=4096,
+                        help="The value of NSIDE")
     parser.add_argument("--dryrun", action="store_true", default=False,
                         help="Just print the command to be executed and exit")
 
@@ -141,16 +143,48 @@ def create_dir(dirname):
                 print(f"Problem creating {dirname} -- proceeding with trepidation")
 
 
+def check_input_files(args):
+    "Check if the inputs are a list or a file with a list"
+    args.nfiles = len(args.files)
+
+    t = magic.Magic(mime=True)
+    if args.nfiles == 1 and t.from_file(args.files[0]) == 'text/plain':
+        print(f"{args.files[0]} is a list of files")
+        # Now read them in
+        with open(args.files[0], 'r') as f:
+            lines = f.read().splitlines()
+        print(f"Read: {len(lines)} input files")
+        args.files = lines
+        args.nfiles = len(lines)
+    else:
+        print("Nothing to see here")
+    return args
+
+
 if __name__ == "__main__":
 
+    # Total time
     t0 = time.time()
 
+    # Get the args
     args, uargs = cmdline()
 
-    # Call tost
-    args = call_toast(args)
-    # Gzip and move
-    args = call_gzip(args)
-    # Move:
-    args = call_move(args)
-    print(f"# Total time: {elapsed_time(t0)}")
+    # Check of files is a list of file with files
+    args = check_input_files(args)
+
+    k = 1
+    for file in args.files:
+        t1 = time.time()
+        print(f"Doing: {k}/{args.nfiles} files")
+        args.inmap = file
+        # Call tost
+        args = call_toast(args)
+        # Gzip and move
+        args = call_gzip(args)
+        # Move:
+        args = call_move(args)
+        print(f"Completed: {k}/{args.nfiles} files")
+        print(f"Total time: {elapsed_time(t1)} for: {file}")
+        k += 1
+
+    print(f"# Gran Total time: {elapsed_time(t0)}")

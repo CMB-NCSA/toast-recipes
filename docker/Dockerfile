@@ -24,6 +24,7 @@ RUN apt-get install -y python-is-python3
 RUN apt-get install -y fftw3 libfftw3-dev libblas-dev liblapack-dev
 RUN apt-get install -y python3-dev libpython3.8-dev
 RUN apt-get install -y python3-setuptools python3-h5py
+RUN apt-get install -y python3-magic
 
 # Need to use pip3 for tomlkit and traitlets newer version
 RUN apt-get install -y python3-pip
