@@ -53,6 +53,12 @@ RUN git clone https://github.com/hpc4cmb/toast.git && \
 # Copy the script
 COPY docker/run_toast_healpix_coadd /usr/local/bin
 
+ENV PATH $PATH:/opt/toast/bin
+ENV PYTHONPATH /opt/toast/lib/python3.8/site-packages:${PYTHONPATH}
+
+RUN echo "export PATH=$PATH:/opt/toast/bin" > /opt/toast/set_toast.sh && \
+    echo "export PYTHONPATH=/opt/toast/lib/python3.8/site-packages:\${PYTHONPATH}" >> /opt/toast/set_toast.sh
+
 # Add $CMBS4USER as user and create groups wheel and spt
 ARG CMBS4USER
 RUN useradd -ms /bin/bash -u 1001 $CMBS4USER && \
@@ -69,6 +75,3 @@ ENV SHELL /bin/bash
 
 USER $CMBS4USER
 WORKDIR /home/$CMBS4USER
-
-ENV PATH $PATH:/opt/toast/bin
-ENV PYTHONPATH /opt/toast/lib/python3.8/site-packages:${PYTHONPATH}
