@@ -16,14 +16,13 @@ def cmdline():
     parser = argparse.ArgumentParser(description=f"Custom run of: {_TOAST_EXEC}")
     parser.add_argument("files", nargs='+',
                         help="Filename(s) to process")
-    #parser.add_argument("--inmap", type=str, action="store", default=None, required=True,
-    #                    help="Name of filename to process")
+
     # Write options
     parser.add_argument("--outdir", type=str, action="store", default=None, required=True,
                         help="The location of the output directory")
     parser.add_argument("--gzip", action='store_true', default=False,
                         help="Run gzip over the output.")
-    parser.add_argument("--indirect_write", action='store_true', default=False,
+    parser.add_argument("--indirect_write", action='store_true', default=True,
                         help="Use indirect write of files to /tmp before moving to destionation.")
     parser.add_argument("--indirect_write_path", action='store', default=None,
                         help="Path for indirect write.")
@@ -83,11 +82,11 @@ def custom_run(cmd, args):
     return
 
 
-def call_toast(args):
+def call_toast(args, filename):
     use_options = ['outmap', 'nside_submap']
 
     # Figure out the --outmap
-    basename_in = os.path.splitext(os.path.basename(args.inmap))[0]
+    basename_in = os.path.splitext(os.path.basename(filename))[0]
     basename_out = f"{basename_in}_nside{args.nside_submap}.fits"
     args.outmap = os.path.join(args.indirect_write_path, basename_out)
     args.outmap_gz = os.path.join(args.indirect_write_path, basename_out+'.gz')
@@ -97,8 +96,7 @@ def call_toast(args):
     # Make it a dictionary we can pop items out of it
     dict_args = vars(args)
 
-    # We build the command-list from the known (additional) arguments
-    cmdlist = [_TOAST_EXEC, args.inmap]
+    cmdlist = [_TOAST_EXEC, filename]
 
     # We build the command-list from the known (additional) arguments
     for key in dict_args:
@@ -176,9 +174,8 @@ if __name__ == "__main__":
     for file in args.files:
         t1 = time.time()
         print(f"Doing: {k}/{args.nfiles} files")
-        args.inmap = file
         # Call tost
-        args = call_toast(args)
+        args = call_toast(args, file)
         # Gzip and move
         args = call_gzip(args)
         # Move:
