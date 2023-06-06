@@ -83,15 +83,20 @@ def custom_run(cmd, args):
 
 
 def call_toast(args, filename):
-    use_options = ['outmap', 'nside_submap']
+    use_options = ['outmap', 'invcov', 'nside_submap']
 
     # Figure out the --outmap
     basename_in = os.path.splitext(os.path.basename(filename))[0]
-    basename_out = f"{basename_in}_nside{args.nside_submap}.fits"
-    args.outmap = os.path.join(args.indirect_write_path, basename_out)
-    args.outmap_gz = os.path.join(args.indirect_write_path, basename_out+'.gz')
-    args.outfile = os.path.join(args.outdir, basename_out)
-    args.outfile_gz = os.path.join(args.outdir, basename_out + '.gz')
+    basename_out = f"{basename_in}_nside{args.nside_submap}"
+    args.outmap = os.path.join(args.indirect_write_path, basename_out+".fits")
+    args.invcov = os.path.join(args.indirect_write_path, basename_out+"_invcov.fits")
+    args.outmap_gz = os.path.join(args.indirect_write_path, basename_out+'.fits.gz')
+    args.invcov_gz = os.path.join(args.indirect_write_path, basename_out+"_invcov.fits.gz")
+
+    args.outfile = os.path.join(args.outdir, basename_out+".fits")
+    args.outfile_invcov = os.path.join(args.outdir, basename_out+"_invcov.fits")
+    args.outfile_gz = os.path.join(args.outdir, basename_out + '.fits.gz')
+    args.outfile_invcov_gz = os.path.join(args.outdir, basename_out+"_invcov.fits.gz")
 
     # Make it a dictionary we can pop items out of it
     dict_args = vars(args)
@@ -119,13 +124,17 @@ def call_gzip(args):
 
     cmd = f"gzip --fast {args.outmap}"
     custom_run(cmd, args)
+    cmd = f"gzip --fast {args.invcov}"
+    custom_run(cmd, args)
     return args
 
 
 def call_move(args):
 
     create_dir(args.outdir)
-    cmd = f"mv {args.outmap_gz} {args.outfile_gz}"
+    cmd = f"mv -v {args.outmap_gz} {args.outfile_gz}"
+    custom_run(cmd, args)
+    cmd = f"mv -v {args.invcov_gz} {args.outfile_invcov_gz}"
     custom_run(cmd, args)
     return args
 
